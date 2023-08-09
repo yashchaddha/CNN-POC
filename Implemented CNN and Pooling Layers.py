@@ -78,7 +78,7 @@
 # - [matplotlib](http://matplotlib.org) is a library to plot graphs in Python.
 # - np.random.seed(1) is used to keep all the random function calls consistent. This helps to grade your work.
 
-# In[ ]:
+# In[1]:
 
 
 import numpy as np
@@ -149,7 +149,7 @@ np.random.seed(1)
 # a = np.pad(a, ((0,0), (1,1), (0,0), (3,3), (0,0)), mode='constant', constant_values = (0,0))
 # ```
 
-# In[ ]:
+# In[2]:
 
 
 # GRADED FUNCTION: zero_pad
@@ -170,14 +170,14 @@ def zero_pad(X, pad):
     #(≈ 1 line)
     # X_pad = None
     # YOUR CODE STARTS HERE
-    
+    X_pad = np.pad(X, ((0, 0), (pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
     
     # YOUR CODE ENDS HERE
     
     return X_pad
 
 
-# In[ ]:
+# In[3]:
 
 
 np.random.seed(1)
@@ -220,7 +220,7 @@ zero_pad_test(zero_pad)
 
 # **Note**: The variable b will be passed in as a numpy array.  If you add a scalar (a float or integer) to a numpy array, the result is a numpy array.  In the special case of a numpy array containing a single value, you can cast it as a float to convert it to a scalar.
 
-# In[ ]:
+# In[6]:
 
 
 # GRADED FUNCTION: conv_single_step
@@ -247,14 +247,16 @@ def conv_single_step(a_slice_prev, W, b):
     # Add bias b to Z. Cast b to a float() so that Z results in a scalar value.
     # Z = None
     # YOUR CODE STARTS HERE
-    
+    s = np.multiply(a_slice_prev,W)
+    z = np.sum([s])
+    Z = np.sum([z,np.squeeze(b)])
     
     # YOUR CODE ENDS HERE
 
     return Z
 
 
-# In[ ]:
+# In[7]:
 
 
 np.random.seed(1)
@@ -331,7 +333,7 @@ assert np.isclose(Z, -6.999089450680221), "Wrong value"
 # * Remember that `a_prev_pad` is a subset of `A_prev_pad`.  
 #   - Think about which one should be used within the for loops.
 
-# In[ ]:
+# In[10]:
 
 
 # GRADED FUNCTION: conv_forward
@@ -395,17 +397,49 @@ def conv_forward(A_prev, W, b, hparameters):
                     # biases = None
                     # Z[i, h, w, c] = None
     # YOUR CODE STARTS HERE
+    (m, n_H_prev, n_W_prev, n_C_prev) = A_prev.shape
+    (f, f, n_C_prev, n_C) = W.shape
     
+    stride = hparameters["stride"]
+    pad = hparameters["pad"]
     
-    # YOUR CODE ENDS HERE
+    n_H = int((n_H_prev+(2*pad)-f)/stride)+1
+    n_W = int((n_W_prev+(2*pad)-f)/stride)+1
     
+    Z =  np.zeros((m, n_H, n_W, n_C))
+    
+    A_prev_pad = zero_pad(A_prev, pad)
+    
+    for i in range(m):               # loop over the batch of training examples
+        a_prev_pad = A_prev_pad[i]          # Select ith training example's padded activation
+        for h in range(n_H):           # loop over vertical axis of the output volume
+            # Find the vertical start and end of the current "slice" (≈2 lines)
+            vert_start = stride * h 
+            vert_end = vert_start  + f
+            
+            for w in range(n_W):       # loop over horizontal axis of the output volume
+                # Find the horizontal start and end of the current "slice" (≈2 lines)
+                horiz_start = stride * w
+                horiz_end = horiz_start + f
+                
+                for c in range(n_C):   # loop over channels (= #filters) of the output volume
+                                        
+                    # Use the corners to define the (3D) slice of a_prev_pad (See Hint above the cell). (≈1 line)
+                    a_slice_prev = a_prev_pad[vert_start:vert_end,horiz_start:horiz_end,:]
+                    
+                    # Convolve the (3D) slice with the correct filter W and bias b, to get back one output neuron. (≈3 line)
+                    weights = W[:, :, :, c]
+                    biases  = b[:, :, :, c]
+                    Z[i, h, w, c] = conv_single_step(a_slice_prev, weights, biases)
+    ### END CODE HERE ###
+
     # Save information in "cache" for the backprop
     cache = (A_prev, W, b, hparameters)
     
     return Z, cache
 
 
-# In[ ]:
+# In[11]:
 
 
 np.random.seed(1)
@@ -481,7 +515,7 @@ conv_forward_test_2(conv_forward)
 # 
 # 
 
-# In[ ]:
+# In[12]:
 
 
 # GRADED FUNCTION: pool_forward
@@ -540,7 +574,29 @@ def pool_forward(A_prev, hparameters, mode = "max"):
                         # A[i, h, w, c] = None
     
     # YOUR CODE STARTS HERE
-    
+    for i in range(m):               # loop over the batch of training examples
+        a_prev_slice = A_prev[i]          # Select ith training example's padded activation
+        for h in range(n_H):           # loop over vertical axis of the output volume
+            # Find the vertical start and end of the current "slice" (≈2 lines)
+            vert_start = stride * h 
+            vert_end = vert_start  + f
+            
+            for w in range(n_W):       # loop over horizontal axis of the output volume
+                # Find the horizontal start and end of the current "slice" (≈2 lines)
+                horiz_start = stride * w
+                horiz_end = horiz_start + f
+                
+                for c in range(n_C):   # loop over channels (= #filters) of the output volume
+                                        
+                    # Use the corners to define the (3D) slice of a_prev_pad (See Hint above the cell). (≈1 line)
+                    a_slice_prev = a_prev_slice[vert_start:vert_end,horiz_start:horiz_end,c]
+                    
+                    if mode == "max":
+                        A[i, h, w, c] = np.max(a_slice_prev)
+                    elif mode == "average":
+                        A[i, h, w, c] = np.mean(a_slice_prev)
+                    else:
+                        print(mode+ "-type pooling layer NOT Defined") 
     
     # YOUR CODE ENDS HERE
     
@@ -553,7 +609,7 @@ def pool_forward(A_prev, hparameters, mode = "max"):
     return A, cache
 
 
-# In[ ]:
+# In[13]:
 
 
 # Case 1: stride of 1
@@ -706,7 +762,7 @@ pool_forward_test_2(pool_forward)
 # 
 # Implement the `conv_backward` function below. You should sum over all the training examples, filters, heights, and widths. You should then compute the derivatives using formulas 1, 2 and 3 above. 
 
-# In[ ]:
+# In[14]:
 
 
 def conv_backward(dZ, cache):
@@ -777,7 +833,59 @@ def conv_backward(dZ, cache):
         # Set the ith training example's dA_prev to the unpadded da_prev_pad (Hint: use X[pad:-pad, pad:-pad, :])
         # dA_prev[i, :, :, :] = None
     # YOUR CODE STARTS HERE
+    # Retrieve information from "cache"
+    (A_prev, W, b, hparameters) = cache
     
+    # Retrieve dimensions from A_prev's shape
+    (m, n_H_prev, n_W_prev, n_C_prev) = A_prev.shape
+    
+    # Retrieve dimensions from W's shape
+    (f, f, n_C_prev, n_C) = W.shape
+    
+    # Retrieve information from "hparameters"
+    stride = hparameters["stride"]
+    pad = hparameters["pad"]
+    
+    # Retrieve dimensions from dZ's shape
+    (m, n_H, n_W, n_C) = dZ.shape
+    
+    # Initialize dA_prev, dW, db with the correct shapes
+    dA_prev = np.zeros((m, n_H_prev, n_W_prev, n_C_prev))                           
+    dW = np.zeros((f, f, n_C_prev, n_C))
+    db = np.zeros((1, 1, 1, n_C))
+
+    # Pad A_prev and dA_prev
+    A_prev_pad = zero_pad(A_prev, pad)
+    dA_prev_pad = zero_pad(dA_prev, pad)
+    
+    for i in range(m):                       # loop over the training examples
+        
+        # select ith training example from A_prev_pad and dA_prev_pad
+        a_prev_pad = A_prev_pad[i]
+        da_prev_pad = dA_prev_pad[i]
+        
+        for h in range(n_H):                   # loop over vertical axis of the output volume
+            for w in range(n_W):               # loop over horizontal axis of the output volume
+                for c in range(n_C):           # loop over the channels of the output volume
+                    
+                    # Find the corners of the current "slice"
+                    vert_start = h * stride
+
+                    vert_end = vert_start + f
+                    horiz_start = w * stride
+
+                    horiz_end = horiz_start + f
+                    
+                    # Use the corners to define the slice from a_prev_pad
+                    a_slice = a_prev_pad[vert_start:vert_end, horiz_start:horiz_end, :]
+
+                    # Update gradients for the window and the filter's parameters using the code formulas given above
+                    da_prev_pad[vert_start:vert_end, horiz_start:horiz_end, :] += W[:,:,:,c] * dZ[i, h, w, c]
+                    dW[:,:,:,c] += a_slice * dZ[i, h, w, c]
+                    db[:,:,:,c] += dZ[i, h, w, c]
+                    
+        # Set the ith training example's dA_prev to the unpaded da_prev_pad (Hint: use X[pad:-pad, pad:-pad, :])
+        dA_prev[i, :, :, :] = da_prev_pad[pad:-pad, pad:-pad, :]
     
     # YOUR CODE ENDS HERE
     
@@ -787,7 +895,7 @@ def conv_backward(dZ, cache):
     return dA_prev, dW, db
 
 
-# In[ ]:
+# In[15]:
 
 
 # We'll run conv_forward to initialize the 'Z' and 'cache_conv",
@@ -883,7 +991,7 @@ print("\033[92m All tests passed.")
 # ```
 # - Here, you don't need to consider cases where there are several maxima in a matrix.
 
-# In[ ]:
+# In[16]:
 
 
 def create_mask_from_window(x):
@@ -899,13 +1007,13 @@ def create_mask_from_window(x):
     # (≈1 line)
     # mask = None
     # YOUR CODE STARTS HERE
-    
+    mask = (x == np.max(x))
     
     # YOUR CODE ENDS HERE
     return mask
 
 
-# In[ ]:
+# In[17]:
 
 
 np.random.seed(1)
@@ -982,7 +1090,7 @@ print("\033[92m All tests passed.")
 # 
 # [Hint](https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.ones.html)
 
-# In[ ]:
+# In[18]:
 
 
 def distribute_value(dz, shape):
@@ -1005,13 +1113,20 @@ def distribute_value(dz, shape):
     # Create a matrix where every entry is the "average" value (≈1 line)
     # a = None
     # YOUR CODE STARTS HERE
+    # Retrieve dimensions from shape (≈1 line)
+    (n_H, n_W) = shape
     
+    # Compute the value to distribute on the matrix (≈1 line)
+    average = dz / (n_H * n_W)
+    
+    # Create a matrix where every entry is the "average" value (≈1 line)
+    a = np.ones(shape) * average
     
     # YOUR CODE ENDS HERE
     return a
 
 
-# In[ ]:
+# In[19]:
 
 
 a = distribute_value(2, (2, 2))
@@ -1055,7 +1170,7 @@ print("\033[92m All tests passed.")
 # 
 # Implement the `pool_backward` function in both modes (`"max"` and `"average"`). You will once again use 4 for-loops (iterating over training examples, height, width, and channels). You should use an `if/elif` statement to see if the mode is equal to `'max'` or `'average'`. If it is equal to 'average' you should use the `distribute_value()` function you implemented above to create a matrix of the same shape as `a_slice`. Otherwise, the mode is equal to '`max`', and you will create a mask with `create_mask_from_window()` and multiply it by the corresponding value of dA.
 
-# In[ ]:
+# In[20]:
 
 
 def pool_backward(dA, cache, mode = "max"):
@@ -1122,7 +1237,48 @@ def pool_backward(dA, cache, mode = "max"):
                         # Distribute it to get the correct slice of dA_prev. i.e. Add the distributed value of da. (≈1 line)
                         # dA_prev[i, vert_start: vert_end, horiz_start: horiz_end, c] += None
     # YOUR CODE STARTS HERE
+    # Retrieve information from cache (≈1 line)
+    (A_prev, hparameters) = cache
     
+    # Retrieve hyperparameters from "hparameters" (≈2 lines)
+    stride = hparameters["stride"]
+    f = hparameters["f"]
+    
+    # Retrieve dimensions from A_prev's shape and dA's shape (≈2 lines)
+    m, n_H_prev, n_W_prev, n_C_prev = A_prev.shape
+    m, n_H, n_W, n_C = dA.shape
+    
+    # Initialize dA_prev with zeros (≈1 line)
+    dA_prev = np.zeros(A_prev.shape)
+    
+    for i in range(m):                       # loop over the training examples
+        # select training example from A_prev (≈1 line)
+        a_prev = A_prev[i]
+        for h in range(n_H):                   # loop on the vertical axis
+            for w in range(n_W):               # loop on the horizontal axis
+                for c in range(n_C):           # loop over the channels (depth)
+                    # Find the corners of the current "slice" (≈4 lines)
+                    vert_start = h
+                    vert_end = vert_start + f
+                    horiz_start = w
+                    horiz_end = horiz_start + f
+                    
+                    # Compute the backward propagation in both modes.
+                    if mode == "max":
+                        # Use the corners and "c" to define the current slice from a_prev (≈1 line)
+                        a_prev_slice = a_prev[vert_start:vert_end, horiz_start:horiz_end, c]
+                        # Create the mask from a_prev_slice (≈1 line)
+                        mask = create_mask_from_window(a_prev_slice)
+                        # Set dA_prev to be dA_prev + (the mask multiplied by the correct entry of dA) (≈1 line)
+                        dA_prev[i, vert_start:vert_end, horiz_start:horiz_end, c] += np.multiply(mask, dA[i, h, w, c])
+                        
+                    elif mode == "average":
+                        # Get the value a from dA (≈1 line)
+                        da = dA[i, h, w, c]
+                        # Define the shape of the filter as fxf (≈1 line)
+                        shape = (f, f)
+                        # Distribute it to get the correct slice of dA_prev. i.e. Add the distributed value of da. (≈1 line)
+                        dA_prev[i, vert_start:vert_end, horiz_start:horiz_end, c] += distribute_value(da, shape)
     
     # YOUR CODE ENDS HERE
     
@@ -1132,7 +1288,7 @@ def pool_backward(dA, cache, mode = "max"):
     return dA_prev
 
 
-# In[ ]:
+# In[21]:
 
 
 np.random.seed(1)
